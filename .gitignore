@@ -12,8 +12,6 @@ gradle/
 .gradle/
 build/
 gradleBuild/
-gradlew.bat
-gradlew
 local.properties
 *.iml
 .idea/

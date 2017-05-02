@@ -8,7 +8,6 @@ output_graph_optimized_rounded.pb
 captures/
 *def.pb
 .DS_Store
-gradle/
 .gradle/
 build/
 gradleBuild/

@@ -1,5 +1,5 @@
 *graph.pb
-keystore.properties
+app/keystore.properties
 keystore.jks
 rounded.pb
 optimized.pb
@@ -16,3 +16,4 @@ local.properties
 .idea/
 gradle.properties
 deepenlib-release.aar
+keystore.properties

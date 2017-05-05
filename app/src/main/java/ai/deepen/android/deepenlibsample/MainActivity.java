@@ -208,7 +208,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateGenderClassifierView(List<ClassifierArrayAdapter.ClassifierResult> results) {
         mGenderTextView.setText(results.get(0).mScore + "");
-        if (results.get(0).mScore > 0.5) {
+        float maleProbability = 0;
+        for (ClassifierArrayAdapter.ClassifierResult classifierResult: results) {
+            if (classifierResult.mClass.equals("male")) {
+                maleProbability = classifierResult.mScore;
+                break;
+            }
+        }
+        if (maleProbability < 0.5) {
             mGenderImageView.setImageResource(R.drawable.human_female);
             mGenderTextView.setText("Female Probability: " + results.get(0).mScore);
         } else {

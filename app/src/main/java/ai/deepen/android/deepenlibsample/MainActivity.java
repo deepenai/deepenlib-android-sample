@@ -54,11 +54,11 @@ public class MainActivity extends AppCompatActivity {
     private static int REQUEST_IMAGE_CAPTURE = 173;
 
     private static final String MODE_CUSTOM_CLASSIFIER = "Custom Classifier";
-    private static final String MODE_GENERAL_CLASSIFIER = "General Classifier";
+    private static final String MODE_GENERAL_CLASSIFIER = "Object Classifier";
     private static final String MODE_GENDER_CLASSIFIER = "Gender Classifier";
 
     private static final List<String> sModes = Arrays.asList(
-            new String[]{MODE_CUSTOM_CLASSIFIER, MODE_GENERAL_CLASSIFIER, MODE_GENDER_CLASSIFIER});
+            new String[]{MODE_GENERAL_CLASSIFIER, MODE_CUSTOM_CLASSIFIER, MODE_GENDER_CLASSIFIER});
 
     private FloatingActionButton mFloatingActionButton;
     private ListView mGeneralClassesListView;

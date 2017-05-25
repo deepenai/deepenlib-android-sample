@@ -51,7 +51,7 @@
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
         android:orientation="vertical"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:padding="10dp"
         android:gravity="center"
         android:layout_below="@id/image_card_view">
@@ -59,7 +59,7 @@
         <RelativeLayout
             android:id="@+id/search_results_pager_content"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_centerInParent="true">
 
             <ProgressBar
@@ -80,7 +80,7 @@
                 android:id="@+id/linear_layout_gender"
                 android:layout_width="match_parent"
                 android:layout_gravity="center"
-                android:layout_height="match_parent">
+                android:layout_height="wrap_content">
                 <ImageView
                     android:id="@+id/image_view_gender"
                     android:layout_gravity="center"
@@ -100,7 +100,7 @@
                 android:orientation="vertical"
                 android:layout_width="match_parent"
                 android:layout_gravity="center"
-                android:layout_height="match_parent">
+                android:layout_height="wrap_content">
                 <ImageView
                     android:id="@+id/image_view_custom_object"
                     android:layout_width="100dp"
@@ -116,5 +116,12 @@
                     android:textStyle="bold"/>
             </LinearLayout>
         </RelativeLayout>
+        <TextView
+            android:id="@+id/text_view_inference_time"
+            android:layout_width="match_parent"
+            android:gravity="center"
+            android:layout_height="wrap_content"
+            android:textSize="15dp"
+            android:textStyle="bold"/>
     </LinearLayout>
 </RelativeLayout>

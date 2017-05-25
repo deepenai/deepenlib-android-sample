@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
@@ -65,13 +66,14 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout mGenderLinearLayout;
     private LinearLayout mCustomObjectLinearLayout;
     private ProgressBar mProgressBar;
-    private AsyncTask<Void, Void, List<ClassifierArrayAdapter.ClassifierResult>> mRefreshAsyncTask;
+    private AsyncTask<Void, Void, ClassifierArrayAdapter.ClassifierResult> mRefreshAsyncTask;
     private ImageView mImageView;
     private ArrayAdapter mGeneralClassesListViewAdapter;
     private TextView mGenderTextView;
     private TextView mCustomObjectTextView;
     private ImageView mGenderImageView;
     private ImageView mCustomObjectImageView;
+    private TextView mInferenceTime;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
         mGeneralClassesListView = (ListView) findViewById(R.id.list_view_general_classes);
         mGeneralClassesListViewAdapter = new ClassifierArrayAdapter(this);
         mGeneralClassesListView.setAdapter(mGeneralClassesListViewAdapter);
+        mInferenceTime = (TextView) findViewById(R.id.text_view_inference_time);
 
         if (!PermissionUtil.hasPermission(this)) {
             PermissionUtil.requestPermission(this);
@@ -142,10 +145,11 @@ public class MainActivity extends AppCompatActivity {
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             String filePath = getImagePath(Prefs.getMode(MainActivity.this));
             File imageFile = new File(filePath);
+            //Log.i("Deepenlib", "" + imageFile.delete());
             Uri photoURI = FileProvider.getUriForFile(this,
                     BuildConfig.APPLICATION_ID + ".provider", imageFile);
             takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-            takePictureIntent.putExtra("filePath", filePath);
+            //takePictureIntent.putExtra("filePath", filePath);
             startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
         }
     }
@@ -155,10 +159,9 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if(requestCode == REQUEST_IMAGE_CAPTURE && resultCode == Activity.RESULT_OK) {
             String filePath = getImagePath(Prefs.getMode(this));
-            if (filePath != null) {
-                Picasso.with(this).load("file://" + filePath).into(mImageView);
-                refreshResults();
-            }
+            Picasso.with(this).invalidate("file://" + filePath);
+            Picasso.with(this).load("file://" + filePath).into(mImageView);;
+            refreshResults();
         }
     }
 
@@ -188,14 +191,14 @@ public class MainActivity extends AppCompatActivity {
         alert.show();
     }
 
-    private void updateGeneralClassifierView(List<ClassifierArrayAdapter.ClassifierResult> results) {
+    private void updateGeneralClassifierView(ClassifierArrayAdapter.ClassifierResult result) {
         mGeneralClassesListViewAdapter.clear();
-        mGeneralClassesListViewAdapter.addAll(results);
+        mGeneralClassesListViewAdapter.addAll(result.mClassifierResultEntries);
     }
 
-    private void updateCustomClassifierView(List<ClassifierArrayAdapter.ClassifierResult> results) {
-        mCustomObjectTextView.setText("Object probability: " + results.get(0).mScore + "");
-        if (results.get(0).mScore > 0.5) {
+    private void updateCustomClassifierView(ClassifierArrayAdapter.ClassifierResult result) {
+        mCustomObjectTextView.setText("Object probability: " + result.mClassifierResultEntries.get(0).mScore + "");
+        if (result.mClassifierResultEntries.get(0).mScore > 0.5) {
             mCustomObjectImageView.setImageResource(R.drawable.checkbox_marked_circle);
             mCustomObjectImageView.setColorFilter(ContextCompat.getColor(this,
                     android.R.color.holo_green_dark));
@@ -206,10 +209,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void updateGenderClassifierView(List<ClassifierArrayAdapter.ClassifierResult> results) {
-        mGenderTextView.setText(results.get(0).mScore + "");
+    private void updateGenderClassifierView(ClassifierArrayAdapter.ClassifierResult result) {
+        mGenderTextView.setText(result.mClassifierResultEntries.get(0).mScore + "");
         float maleProbability = 0;
-        for (ClassifierArrayAdapter.ClassifierResult classifierResult: results) {
+        for (ClassifierArrayAdapter.ClassifierResultEntry classifierResult: result.mClassifierResultEntries) {
             if (classifierResult.mClass.equals("male")) {
                 maleProbability = classifierResult.mScore;
                 break;
@@ -217,15 +220,15 @@ public class MainActivity extends AppCompatActivity {
         }
         if (maleProbability < 0.5) {
             mGenderImageView.setImageResource(R.drawable.human_female);
-            mGenderTextView.setText("Female Probability: " + results.get(0).mScore);
+            mGenderTextView.setText("Female Probability: " + result.mClassifierResultEntries.get(0).mScore);
         } else {
             mGenderImageView.setImageResource(R.drawable.human_male);
-            mGenderTextView.setText("Male Probability: " + results.get(0).mScore);
+            mGenderTextView.setText("Male Probability: " + result.mClassifierResultEntries.get(0).mScore);
         }
     }
 
 
-    public static class ClassifierArrayAdapter extends ArrayAdapter<ClassifierArrayAdapter.ClassifierResult> {
+    public static class ClassifierArrayAdapter extends ArrayAdapter<ClassifierArrayAdapter.ClassifierResultEntry> {
         private Context mContext;
         public ClassifierArrayAdapter(Context context){
             super(context, R.layout.list_view_item_classifier_result);
@@ -239,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
                         R.layout.list_view_item_classifier_result,
                         parent, false);
             }
-            final ClassifierResult classifierResult = getItem(position);
+            final ClassifierResultEntry classifierResult = getItem(position);
             ((TextView) convertView.findViewById(R.id.list_item_classifier_result_class)).setText(classifierResult.mClass);
             ((TextView) convertView.findViewById(R.id.list_item_classifier_result_score)).setText("" + classifierResult.mScore);
 
@@ -247,17 +250,26 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public static class ClassifierResult {
+            public final long mInferenceTimeMillis;
+            public final List<ClassifierResultEntry> mClassifierResultEntries;
+
+            public ClassifierResult(long mInferenceTimeMillis, List<ClassifierResultEntry> mClassifierResultEntries) {
+                this.mInferenceTimeMillis = mInferenceTimeMillis;
+                this.mClassifierResultEntries = mClassifierResultEntries;
+            }
+        }
+        public static class ClassifierResultEntry {
             public final String mClass;
             public final float mScore;
 
-            public ClassifierResult(String class1, float score) {
+            public ClassifierResultEntry(String class1, float score) {
                 mClass = class1;
                 mScore = score;
             }
         }
     }
 
-    private class RefreshAsyncTask extends AsyncTask<Void, Void, List<ClassifierArrayAdapter.ClassifierResult>> {
+    private class RefreshAsyncTask extends AsyncTask<Void, Void, ClassifierArrayAdapter.ClassifierResult> {
         private void progressBarIsRunning(boolean isRunning) {
             mProgressBar.setVisibility(isRunning ? View.VISIBLE : View.GONE);
             int mode = Prefs.getMode(MainActivity.this);
@@ -270,6 +282,9 @@ public class MainActivity extends AppCompatActivity {
             mCustomObjectLinearLayout.setVisibility(
                     !isRunning && sModes.get(mode).equals(MODE_CUSTOM_CLASSIFIER) ?
                             View.VISIBLE : View.GONE);
+            if (isRunning) {
+                mInferenceTime.setVisibility(View.GONE);
+            }
         }
 
         @Override
@@ -279,8 +294,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected List<ClassifierArrayAdapter.ClassifierResult> doInBackground(Void... params) {
-            long startTime = System.currentTimeMillis();
+        protected ClassifierArrayAdapter.ClassifierResult doInBackground(Void... params) {
             String imageFilePath = getImagePath(Prefs.getMode(MainActivity.this));
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inPreferredConfig = Bitmap.Config.ARGB_8888;
@@ -291,6 +305,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Map<String, Float> classifierResultsMap = new HashMap<>();
                 int mode = Prefs.getMode(MainActivity.this);
+                long startTime = System.currentTimeMillis();
                 if (sModes.get(mode).equals(MODE_GENERAL_CLASSIFIER)) {
                     classifierResultsMap.putAll(DeepenImage.identifyImage(MainActivity.this, bitmap));
                 } else if(sModes.get(mode).equals(MODE_GENDER_CLASSIFIER)) {
@@ -300,43 +315,49 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.this, bitmap));
                 }
 
-                Log.i("Deepenlib", "Classifier inference done. Time elapsed:" + (System.currentTimeMillis() - startTime));
+                long inferenceTimeMillis = System.currentTimeMillis() - startTime;
 
-                List<ClassifierArrayAdapter.ClassifierResult> classifierResultsList = new ArrayList<>();
+                Log.i("Deepenlib", "Classifier inference done. Time elapsed:" + inferenceTimeMillis);
+
+                List<ClassifierArrayAdapter.ClassifierResultEntry> classifierResultsList = new ArrayList<>();
                 for (String key: classifierResultsMap.keySet()) {
-                    classifierResultsList.add(new ClassifierArrayAdapter.ClassifierResult(key,
+                    classifierResultsList.add(new ClassifierArrayAdapter.ClassifierResultEntry(key,
                             classifierResultsMap.get(key)));
                 }
 
-                Collections.sort(classifierResultsList, new Comparator<ClassifierArrayAdapter.ClassifierResult>() {
+                Collections.sort(classifierResultsList, new Comparator<ClassifierArrayAdapter.ClassifierResultEntry>() {
                     @Override
-                    public int compare(ClassifierArrayAdapter.ClassifierResult o1, ClassifierArrayAdapter.ClassifierResult o2) {
+                    public int compare(ClassifierArrayAdapter.ClassifierResultEntry o1, ClassifierArrayAdapter.ClassifierResultEntry o2) {
                         return o1.mScore <= o2.mScore ? 1 : -1;
                     }
                 });
 
-                return classifierResultsList;
+                return new ClassifierArrayAdapter.ClassifierResult(inferenceTimeMillis, classifierResultsList);
             }
         }
 
         @Override
-        protected void onPostExecute(List<ClassifierArrayAdapter.ClassifierResult> results) {
-            super.onPostExecute(results);
+        protected void onPostExecute(ClassifierArrayAdapter.ClassifierResult result) {
+            super.onPostExecute(result);
 
-            if (results == null) {
-            } else if (results.isEmpty()) {
+            if (result == null || result.mClassifierResultEntries == null
+                    || result.mClassifierResultEntries.isEmpty()) {
                 Toast.makeText(MainActivity.this, "Could not get results", Toast.LENGTH_LONG).show();
             } else {
                 int mode = Prefs.getMode(MainActivity.this);
                 if (sModes.get(mode).equals(MODE_GENERAL_CLASSIFIER)) {
-                    updateGeneralClassifierView(results);
+                    updateGeneralClassifierView(result);
                 } else if(sModes.get(mode).equals(MODE_GENDER_CLASSIFIER)) {
-                    updateGenderClassifierView(results);
+                    updateGenderClassifierView(result);
                 } else if(sModes.get(mode).equals(MODE_CUSTOM_CLASSIFIER)) {
-                    updateCustomClassifierView(results);
+                    updateCustomClassifierView(result);
                 }
             }
             progressBarIsRunning(false);
+            if (result != null) {
+                mInferenceTime.setText("Inference Time: " + result.mInferenceTimeMillis + "ms");
+                mInferenceTime.setVisibility(View.VISIBLE);
+            }
         }
     }
 }
